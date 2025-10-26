@@ -13,16 +13,13 @@
     <style>
         /* Use Inter font */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap');
-        body {
+        html, body {
             font-family: 'Inter', sans-serif;
             background-color: #030712; /* gray-950 */
             color: #f9fafb; /* gray-100 */
             overflow: hidden; /* Hide body scrollbars */
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            padding: 1rem; /* Add padding for small screens */
+            height: 100vh;
+            width: 100vw;
         }
 
         /* The animated blob, positioned behind everything */
@@ -47,33 +44,27 @@
             to { transform: translate(-50%, -50%) rotate(360deg); }
         }
 
-        /* Main content card with the glassmorphism effect */
-        #card {
-            width: 100%;
-            max-width: 700px;
-            height: 80vh; 
-            max-height: 800px; 
-            background: rgba(17, 24, 39, 0.6); /* gray-900 with 60% opacity */
-            border-radius: 1.5rem; /* rounded-3xl */
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
+        /* Main app container - NOW FULL SCREEN */
+        #app-container {
+            width: 100vw;
+            height: 100vh; 
             z-index: 2; /* In front of blob */
             display: flex;
             flex-direction: column;
-            overflow: hidden; /* Ensure rounded corners clip content */
+            overflow: hidden; /* Ensure content doesn't overflow */
         }
         
-        #card-header {
+        #app-header {
             padding: 1.5rem 2rem;
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
             text-align: center;
+            flex-shrink: 0; /* Header doesn't shrink */
         }
 
-        #card-content {
+        /* Main content area, scrollable */
+        #app-content {
             padding: 2rem;
-            flex-grow: 1;
+            flex-grow: 1; /* Takes up remaining space */
             overflow-y: auto;
             /* Custom scrollbar */
             &::-webkit-scrollbar { width: 8px; }
@@ -82,15 +73,16 @@
             &::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3); }
         }
         
-        #card-footer {
+        #app-footer {
             padding: 1rem 2rem;
             border-top: 1px solid rgba(255, 255, 255, 0.1);
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-shrink: 0; /* Footer doesn't shrink */
         }
 
-        /* Modal Styles */
+        /* Modal Styles (unchanged, still overlays) */
         #modal-backdrop {
             position: fixed;
             inset: 0;
@@ -119,7 +111,7 @@
             &::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 10px; }
         }
         
-        /* Glassmorphism buttons */
+        /* Glassmorphism buttons (unchanged) */
         .btn {
             display: inline-flex;
             align-items: center;
@@ -154,7 +146,7 @@
             cursor: not-allowed;
         }
 
-        /* List item styles */
+        /* List item styles (unchanged) */
         .list-item {
             display: flex;
             justify-content: space-between;
@@ -165,7 +157,7 @@
             border: 1px solid rgba(255, 255, 255, 0.05);
         }
         
-        /* Checkbox styles */
+        /* Checkbox styles (unchanged) */
         .styled-checkbox-wrapper {
             display: flex;
             align-items: center;
@@ -194,7 +186,7 @@
             font-weight: bold;
         }
 
-        /* Spinner for AI Loading */
+        /* Spinner for AI Loading (unchanged) */
         .spinner {
             width: 1.25rem;
             height: 1.25rem;
@@ -207,7 +199,7 @@
             to { transform: rotate(360deg); }
         }
         
-        /* --- CHATBOT STYLES --- */
+        /* --- CHATBOT STYLES (unchanged) --- */
         #chat-bubble-button {
             position: fixed;
             bottom: 2rem;
@@ -347,24 +339,25 @@
         .hidden { display: none; }
     </style>
 </head>
-<body class="bg-gray-950 text-gray-100">
+<body>
 
     <!-- The animated blob background -->
     <div id="blob"></div>
 
-    <!-- Main Card -->
-    <div id="card">
+    <!-- Main App Container -->
+    <div id="app-container">
         
-        <!-- Card Header -->
-        <div id="card-header">
+        <!-- App Header -->
+        <div id="app-header">
             <h1 class="text-2xl font-black text-white">Rebalancing Terminal</h1>
         </div>
 
-        <!-- Card Content (Pages) -->
-        <div id="card-content">
+        <!-- App Content (Pages) -->
+        <div id="app-content">
             
             <!-- Page 1: Welcome -->
-            <div id="page-welcome">
+            <!-- ADDED max-w-4xl and mx-auto for readable content -->
+            <div id="page-welcome" class="max-w-4xl mx-auto">
                 <h2 class="text-3xl font-semibold text-white mb-4">Strategic Repositioning</h2>
                 <p class="text-lg text-gray-300 mb-8 leading-relaxed">
                     This terminal provides a proposal for rebalancing the portfolio. It involves
@@ -397,7 +390,8 @@
             </div>
 
             <!-- Page 2: Liquidation -->
-            <div id="page-liquidation" class="hidden">
+            <!-- ADDED max-w-4xl and mx-auto for readable content -->
+            <div id="page-liquidation" class="hidden max-w-4xl mx-auto">
                 <h2 class="text-2xl font-semibold text-white mb-6">Step 1: Liquidation Proposal</h2>
                 
                 <!-- HOLD Section -->
@@ -447,7 +441,8 @@
             </div>
             
             <!-- Page 3: Proposal -->
-            <div id="page-proposal" class="hidden">
+            <!-- ADDED max-w-4xl and mx-auto for readable content -->
+            <div id="page-proposal" class="hidden max-w-4xl mx-auto">
                 <h2 class="text-2xl font-semibold text-white mb-6">Step 2: 'Self Exec' Buy Proposal</h2>
                 <div class="mb-6 p-5 bg-green-900/30 rounded-lg border border-green-500/50">
                     <h3 class="text-xl font-bold text-green-300">Core Picks (Redeploying $155.72)</h3>
@@ -475,7 +470,8 @@
             </div>
             
             <!-- Page 4: Review -->
-            <div id="page-review" class="hidden">
+            <!-- ADDED max-w-4xl and mx-auto for readable content -->
+            <div id="page-review" class="hidden max-w-4xl mx-auto">
                 <h2 class="text-2xl font-semibold text-white mb-6">Step 3: Final Review</h2>
                 
                 <!-- This grid holds the review lists -->
@@ -547,8 +543,8 @@
 
         </div>
 
-        <!-- Card Footer (Navigation) -->
-        <div id="card-footer">
+        <!-- App Footer (Navigation) -->
+        <div id="app-footer">
             <button id="btn-back" class="btn hidden">
                 <i data-lucide="arrow-left"></i>
                 Back
@@ -704,7 +700,7 @@
             `;
             
             // --- Get Element References ---
-            const cardContent = document.getElementById('card-content');
+            const appContent = document.getElementById('app-content');
             const btnBack = document.getElementById('btn-back');
             const btnNext = document.getElementById('btn-next');
             const modal = document.getElementById('modal');
@@ -730,7 +726,7 @@
             // --- Page Navigation ---
             function showPage(pageId) {
                 // Reset card scroll
-                cardContent.scrollTop = 0;
+                appContent.scrollTop = 0;
                 
                 // Hide all pages
                 pages.forEach(p => {
