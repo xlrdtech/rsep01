@@ -1,0 +1,1354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rebalancing Terminal</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Load Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+
+    <style>
+        /* Use Inter font */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #030712; /* gray-950 */
+            color: #f9fafb; /* gray-100 */
+            overflow: hidden; /* Hide body scrollbars */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 1rem; /* Add padding for small screens */
+        }
+
+        /* The animated blob, positioned behind everything */
+        #blob {
+            background-color: white;
+            height: 400px;
+            aspect-ratio: 1;
+            position: fixed;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            background: linear-gradient(to right, #6366f1, #a855f7); /* indigo-500 to purple-600 */
+            animation: rotate 20s infinite;
+            filter: blur(150px);
+            opacity: 0.2;
+            z-index: 1; /* Behind content */
+        }
+
+        @keyframes rotate {
+            from { transform: translate(-50%, -50%) rotate(0deg); }
+            to { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
+        /* Main content card with the glassmorphism effect */
+        #card {
+            width: 100%;
+            max-width: 700px;
+            height: 80vh; 
+            max-height: 800px; 
+            background: rgba(17, 24, 39, 0.6); /* gray-900 with 60% opacity */
+            border-radius: 1.5rem; /* rounded-3xl */
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            z-index: 2; /* In front of blob */
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; /* Ensure rounded corners clip content */
+        }
+        
+        #card-header {
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+        }
+
+        #card-content {
+            padding: 2rem;
+            flex-grow: 1;
+            overflow-y: auto;
+            /* Custom scrollbar */
+            &::-webkit-scrollbar { width: 8px; }
+            &::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); border-radius: 10px; }
+            &::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 10px; }
+            &::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3); }
+        }
+        
+        #card-footer {
+            padding: 1rem 2rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Modal Styles */
+        #modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+            z-index: 10;
+        }
+        #modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            background: rgba(31, 41, 55, 0.9); /* gray-800 */
+            border-radius: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(30px);
+            z-index: 11;
+            padding: 2rem;
+            overflow-y: auto;
+            /* Custom scrollbar for modal */
+            &::-webkit-scrollbar { width: 6px; }
+            &::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); border-radius: 10px; }
+            &::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 10px; }
+        }
+        
+        /* Glassmorphism buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem; /* 8px */
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #f9fafb; /* gray-100 */
+            padding: 0.6rem 1.2rem;
+            border-radius: 0.75rem; /* rounded-xl */
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+        }
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+        .btn-primary {
+            background: #4f46e5; /* indigo-600 */
+            border-color: #4f46e5;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #6366f1; /* indigo-500 */
+            border-color: #6366f1;
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* List item styles */
+        .list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 0.75rem;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        /* Checkbox styles */
+        .styled-checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            cursor: pointer;
+        }
+        .styled-checkbox {
+            appearance: none;
+            width: 1.5rem;
+            height: 1.5rem;
+            border-radius: 0.375rem;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            background-color: rgba(255, 255, 255, 0.1);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+        .styled-checkbox:checked {
+            background-color: #4f46e5;
+            border-color: #6366f1;
+            background-image: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg%3e");
+            background-size: 100% 100%;
+        }
+        .checkbox-label {
+            font-size: 1.125rem;
+            font-weight: bold;
+        }
+
+        /* Spinner for AI Loading */
+        .spinner {
+            width: 1.25rem;
+            height: 1.25rem;
+            border-radius: 50%;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #fff;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* --- CHATBOT STYLES --- */
+        #chat-bubble-button {
+            position: fixed;
+            bottom: 2rem;
+            left: 2rem; /* MOVED to left */
+            z-index: 20;
+            background: #4f46e5; /* indigo-600 */
+            color: white;
+            width: 3.5rem;
+            height: 3.5rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+        #chat-bubble-button:hover {
+            background: #6366f1; /* indigo-500 */
+            transform: scale(1.1);
+        }
+        #chat-window {
+            width: 90%;
+            max-width: 400px;
+            height: 60vh;
+            max-height: 500px;
+            position: fixed;
+            bottom: 6rem; /* 2rem (bubble) + 3.5rem (bubble) + 0.5rem (margin) */
+            left: 2rem; /* MOVED to left */
+            z-index: 30;
+            
+            background: rgba(17, 24, 39, 0.7); /* gray-900 with 70% opacity */
+            border-radius: 1.5rem; /* rounded-3xl */
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            
+            /* Animation */
+            opacity: 0;
+            transform: scale(0.9);
+            transform-origin: bottom left; /* MOVED from bottom right */
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            pointer-events: none;
+        }
+        #chat-window.open {
+            opacity: 1;
+            transform: scale(1);
+            pointer-events: auto;
+        }
+        #chat-messages {
+            flex-grow: 1;
+            padding: 1rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            /* Custom scrollbar for chat */
+            &::-webkit-scrollbar { width: 6px; }
+            &::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); border-radius: 10px; }
+            &::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 10px; }
+        }
+        .chat-message {
+            padding: 0.75rem 1rem;
+            border-radius: 1rem;
+            max-width: 80%;
+            line-height: 1.6;
+            /* Allow text selection */
+            user-select: text; 
+        }
+        .chat-message.user {
+            background: #4f46e5;
+            color: white;
+            border-bottom-right-radius: 0.25rem;
+            align-self: flex-end;
+        }
+        .chat-message.bot {
+            background: rgba(255, 255, 255, 0.1);
+            color: #f9fafb;
+            border-bottom-left-radius: 0.25rem;
+            align-self: flex-start;
+        }
+        .chat-message.bot.loading {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        #chat-input-area {
+            display: flex;
+            padding: 1rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        #chat-input {
+            flex-grow: 1;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            border-radius: 0.75rem;
+            padding: 0.75rem;
+            font-size: 0.9rem;
+            outline: none;
+            margin-right: 0.5rem;
+        }
+        #chat-input:focus {
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 2px #4f46e5;
+        }
+        #chat-send-btn {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            border-radius: 0.75rem;
+            width: 2.75rem;
+            height: 2.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.2s ease;
+            flex-shrink: 0;
+        }
+        #chat-send-btn:hover {
+            background: #6366f1;
+        }
+        #chat-send-btn:disabled {
+            background: #3730a3;
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        /* --- END CHATBOT STYLES --- */
+
+        /* Utility */
+        .hidden { display: none; }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-100">
+
+    <!-- The animated blob background -->
+    <div id="blob"></div>
+
+    <!-- Main Card -->
+    <div id="card">
+        
+        <!-- Card Header -->
+        <div id="card-header">
+            <h1 class="text-2xl font-black text-white">Rebalancing Terminal</h1>
+        </div>
+
+        <!-- Card Content (Pages) -->
+        <div id="card-content">
+            
+            <!-- Page 1: Welcome -->
+            <div id="page-welcome">
+                <h2 class="text-3xl font-semibold text-white mb-4">Strategic Repositioning</h2>
+                <p class="text-lg text-gray-300 mb-8 leading-relaxed">
+                    This terminal provides a proposal for rebalancing the portfolio. It involves
+                    liquidating underperforming assets to fund new, high-growth 'Self Exec Picks'.
+                </p>
+                <div class="p-6 bg-gray-900/50 rounded-xl border border-gray-700">
+                    <h3 class="text-xl font-bold text-white mb-4">Your 3-Step Process:</h3>
+                    <ol class="list-decimal list-inside space-y-3 text-gray-300 text-lg">
+                        <li>Review assets to <span class="text-red-400 font-semibold">SELL</span> and <span class="text-teal-400 font-semibold">HOLD</span>.</li>
+                        <li>Review new 'Self Exec Picks' for redeployment.</li>
+                        <li>Approve or decline each new trade.</li>
+                        <li>Confirm and send your final decision.</li>
+                    </ol>
+                </div>
+                
+                <!-- AI Strategy Explanation Feature -->
+                <div class="mt-8 text-center">
+                    <button id="btn-explain-strategy" class="btn btn-primary">
+                        <i data-lucide="brain-circuit"></i>
+                        ✨ Explain This Strategy
+                    </button>
+                    <div id="strategy-explanation-loading" class="hidden flex items-center justify-center gap-3 mt-4">
+                        <div class="spinner"></div>
+                        <span class="text-gray-400">Generating explanation...</span>
+                    </div>
+                    <div id="strategy-explanation" class="hidden p-4 mt-4 bg-gray-900/50 rounded-lg border border-indigo-500/50 text-indigo-100 leading-relaxed text-left">
+                        <!-- AI Explanation will go here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Page 2: Liquidation -->
+            <div id="page-liquidation" class="hidden">
+                <h2 class="text-2xl font-semibold text-white mb-6">Step 1: Liquidation Proposal</h2>
+                
+                <!-- HOLD Section -->
+                <div class="mb-6 p-5 bg-teal-900/30 rounded-lg border border-teal-500/50">
+                    <h3 class="text-xl font-bold text-teal-300">Assets to HOLD</h3>
+                </div>
+                <div class="space-y-4 mb-6">
+                    <div class="list-item">
+                        <span class="text-lg font-bold text-white">BTC</span>
+                        <span class="text-lg font-medium text-gray-300">$570.82</span>
+                    </div>
+                </div>
+
+                <!-- SELL Section -->
+                <div class="mb-6 p-5 bg-red-900/30 rounded-lg border border-red-500/50">
+                    <h3 class="text-xl font-bold text-red-300">Assets to SELL</h3>
+                </div>
+                <div class="space-y-4 mb-6">
+                    <!-- Data from PDF/Screenshots -->
+                    <div class="list-item">
+                        <span class="text-lg font-bold text-white">DOGE</span>
+                        <span class="text-lg font-medium text-gray-300">$108.23</span>
+                    </div>
+                    <div class="list-item">
+                        <span class="text-lg font-bold text-white">NIO</span>
+                        <span class="text-lg font-medium text-gray-300">$43.19</span>
+                    </div>
+                    <div class="list-item">
+                        <span class="text-lg font-bold text-white">BTTC</span>
+                        <span class="text-lg font-medium text-gray-300">$4.23</span>
+                    </div>
+                    <div class="list-item">
+                        <span class="text-lg font-bold text-white">MRNA</span>
+                        <span class="text-lg font-medium text-gray-300">$0.07</span>
+                    </div>
+                    <div class="list-item">
+                        <span class="text-lg font-bold text-white">IDEXQ</span>
+                        <span class="text-lg font-medium text-gray-300">$0.00</span>
+                    </div>
+                </div>
+                
+                <!-- Total Capital -->
+                <div class="mt-8 p-6 bg-teal-900/50 rounded-xl border border-teal-500/50 text-center">
+                    <div class="text-lg font-medium text-teal-300 mb-2">Total Capital for Redeployment</div>
+                    <div class="text-4xl font-bold text-teal-400" id="total-capital">$155.72</div>
+                </div>
+            </div>
+            
+            <!-- Page 3: Proposal -->
+            <div id="page-proposal" class="hidden">
+                <h2 class="text-2xl font-semibold text-white mb-6">Step 2: 'Self Exec' Buy Proposal</h2>
+                <div class="mb-6 p-5 bg-green-900/30 rounded-lg border border-green-500/50">
+                    <h3 class="text-xl font-bold text-green-300">Core Picks (Redeploying $155.72)</h3>
+                </div>
+                <div class="space-y-4" id="proposal-list">
+                    <!-- Proposal items will be dynamically inserted here by JS -->
+                </div>
+                
+                <!-- Watch List Section -->
+                <div class="mt-8">
+                     <div class="mb-6 p-5 bg-amber-900/30 rounded-lg border border-amber-500/50">
+                        <h3 class="text-xl font-bold text-amber-300">Contingent Pick (Watch List)</h3>
+                    </div>
+                    <div class="list-item">
+                        <div>
+                            <span class="text-lg font-bold text-white">BYND</span>
+                            <span class="block text-sm text-gray-400">Beyond Meat</span>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-sm font-semibold text-amber-400">DO NOT BUY YET</div>
+                            <div class="text-xs text-gray-400">Buy on 25%+ bullish reversal</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Page 4: Review -->
+            <div id="page-review" class="hidden">
+                <h2 class="text-2xl font-semibold text-white mb-6">Step 3: Final Review</h2>
+                
+                <!-- This grid holds the review lists -->
+                <div id="review-grid" class="grid md:grid-cols-2 gap-8">
+                    <!-- Left Column: Sell / Hold -->
+                    <div class="space-y-6">
+                        <!-- SELL Column -->
+                        <div>
+                            <div class="p-4 bg-red-900/30 rounded-lg border border-red-500/50 mb-4">
+                                <h3 class="text-lg font-bold text-red-300">APPROVED TO SELL</h3>
+                            </div>
+                            <ul id="review-sell-list" class="space-y-2 text-gray-300">
+                                <!-- JS will populate this -->
+                            </ul>
+                        </div>
+                        
+                        <!-- HOLD Column -->
+                        <div>
+                            <div class="p-4 bg-teal-900/30 rounded-lg border border-teal-500/50 mb-4">
+                                <h3 class="text-lg font-bold text-teal-300">APPROVED TO HOLD</h3>
+                            </div>
+                            <ul id="review-hold-list" class="space-y-2 text-gray-300">
+                                <!-- JS will populate this -->
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- Right Column: Buy / Decline -->
+                    <div class="space-y-6">
+                        <!-- BUY Column -->
+                        <div>
+                            <div class="p-4 bg-green-900/30 rounded-lg border border-green-500/50 mb-4">
+                                <h3 class="text-lg font-bold text-green-300">APPROVED TO BUY</h3>
+                            </div>
+                            <ul id="review-buy-list" class="space-y-2 text-green-300">
+                                <!-- JS will populate this -->
+                            </ul>
+                        </div>
+                        
+                        <!-- DECLINE Column -->
+                        <div id="decline-section" class="hidden">
+                            <div class="p-4 bg-gray-700/30 rounded-lg border border-gray-600/50 mb-4">
+                                <h3 class="text-lg font-bold text-gray-400">DECLINED TO BUY</h3>
+                            </div>
+                            <ul id="review-decline-list" class="space-y-2 text-gray-400 mt-2">
+                                <!-- JS will populate this -->
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- This div will hold the SMS dispatch UI -->
+                <div id="sms-dispatch-area" class="hidden">
+                    <h3 class="text-xl font-semibold text-white mb-4">Approval Message Generated</h3>
+                    <p class="text-gray-300 mb-4">
+                        The following summary has been drafted by the AI. Please click the button below to
+                        copy this message and open your SMS app (like Text Now) to send it.
+                    </p>
+                    <textarea id="sms-body-textarea" readonly
+                        class="w-full h-48 p-4 rounded-lg bg-gray-900/70 border border-gray-700 text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-4"
+                    ></textarea>
+                    <button id="btn-copy-and-send" class="btn btn-primary w-full justify-center">
+                        <i data-lucide="copy-check"></i>
+                        Copy Message & Open SMS
+                    </button>
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- Card Footer (Navigation) -->
+        <div id="card-footer">
+            <button id="btn-back" class="btn hidden">
+                <i data-lucide="arrow-left"></i>
+                Back
+            </button>
+            <button id="btn-next" class="btn btn-primary ml-auto">
+                Begin
+                <i data-lucide="arrow-right"></i>
+            </button>
+        </div>
+    </div>
+    
+    <!-- Modal -->
+    <div id="modal-backdrop" class="hidden"></div>
+    <div id="modal" class="hidden">
+        <!-- Modal content will be dynamically inserted here -->
+    </div>
+
+    <!-- CHATBOT UI -->
+    <div id="chat-bubble-button">
+        <i data-lucide="message-circle"></i>
+    </div>
+    <div id="chat-window" class="hidden">
+        <!-- Chat Header -->
+        <div class="flex items-center justify-between p-4 border-b border-gray-700">
+            <h3 class="text-lg font-semibold text-white">AI Strategy Assistant</h3>
+            <button id="chat-close-btn" class="text-gray-400 hover:text-white">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        
+        <!-- Chat Messages -->
+        <div id="chat-messages">
+            <div class="chat-message bot">
+                Hi! I'm your AI assistant. I'm here to help you understand this app and the investment strategy. How can I help?
+            </div>
+            <!-- Messages will be added here -->
+        </div>
+        
+        <!-- Chat Input -->
+        <div id="chat-input-area">
+            <input type="text" id="chat-input" placeholder="Ask a question...">
+            <button id="chat-send-btn">
+                <i data-lucide="send"></i>
+            </button>
+        </div>
+    </div>
+    <!-- END CHATBOT UI -->
+
+
+    <!-- JavaScript for interactivity -->
+    <script type="module">
+        // Wait for the full page to load, including scripts like Lucide
+        window.addEventListener('load', () => {
+            
+            // --- App State ---
+            let currentPage = 'welcome';
+            const pages = ['welcome', 'liquidation', 'proposal', 'review'];
+            const totalCapital = 155.72; 
+            const strategistPhoneNumber = '7707711610'; // Your phone number
+            let chatHistory = []; // For the chatbot
+            
+            // --- MANDATORY: API Key hard-coded as requested ---
+            const hardcodedApiKey = "AIzaSyCnhz2MmM_zTFgKzLw7xWYDRWHhKufXce4"; 
+
+            // --- Data from the Investment Proposal PDF ---
+            // --- UPDATED: Removed BYND, re-allocated its 15% proportionally ---
+            const proposalData = {
+                'LAZR': {
+                    name: 'Luminar Technologies',
+                    allocationPercent: 0.3529, // 30% / 85%
+                    timeHorizon: '3-5 Years',
+                    rationale: 'Core long-term technology play. Lidar systems at 1,550 nm wavelength provide a distinct technical moat in the autonomous vehicle supply chain.',
+                    risk: 'Risks include delays in mass adoption of autonomous vehicles, intense competition, and execution risk associated with scaling manufacturing.',
+                    catalyst: 'Announcement of a new major OEM partnership for series production or significant progress in its high-volume production line.'
+                },
+                'IKT': {
+                    name: 'Inhibikase Therapeutics',
+                    allocationPercent: 0.2353, // 20% / 85%
+                    timeHorizon: '3-5 Years',
+                    rationale: 'High-risk/high-reward biotech play. Represents a focused bet on a specific scientific approach to treating Parkinson\'s disease (c-Abl kinase inhibitor).',
+                    risk: 'Primary risk is clinical trial failure. As a clinical-stage company, its value is almost entirely dependent on positive data. A negative result could lead to catastrophic loss.',
+                    catalyst: 'Positive data readout from its Phase 2a clinical trial for IkT-148009 in Parkinson\'s patients.'
+                },
+                'VIRTUAL': {
+                    name: 'Virtuals Protocol',
+                    allocationPercent: 0.2353, // 20% / 85%
+                    timeHorizon: '18-24 Months',
+                    rationale: 'Core Web3 play positioned at the intersection of AI and cryptocurrency. Introduces novel tokenomics like "Initial Agent Offering" (IAO) to create a new asset class.',
+                    risk: 'Subject to extreme volatility, regulatory uncertainty, competition, and failure to gain widespread user and developer adoption.',
+                    catalyst: 'Successful integration of its AI agent protocol into a major gaming or entertainment platform, demonstrating product-market fit.'
+                },
+                'ZORA': {
+                    name: 'Zora',
+                    allocationPercent: 0.1765, // 15% / 85%
+                    timeHorizon: '18-24 Months',
+                    rationale: '"Picks and shovels" investment in the on-chain creator economy. Provides Layer-2 infrastructure for creators to tokenize their work, offering a sustainable, utility-driven model.',
+                    risk: 'Subject to extreme volatility, regulatory uncertainty, competition, and failure to gain widespread user and developer adoption.',
+                    catalyst: 'A surge in on-chain activity and creator adoption, cementing its position as a foundational layer.'
+                }
+            };
+
+            // --- NEW: FULL-CONTEXT CHATBOT SYSTEM PROMPT (from document) ---
+            const chatbotSystemPrompt = `
+                You are a friendly and professional AI assistant for a financial strategist, Arkia Allen. 
+                Your SOLE purpose is to help a client understand this "Rebalancing Terminal" app and the "Investment Proposal for Arkia Allen" document it is based on.
+                You MUST NOT give financial advice. When asked for advice, you must politely decline and state that you are here to provide information and education about THIS proposal ONLY.
+                You are an expert on this document and the "Self Exec" philosophy.
+
+                HERE IS THE FULL CONTEXT:
+
+                == 1. HOW TO USE THIS APP ==
+                * This app has 4 pages. The user navigates using the 'Back' and 'Next' buttons.
+                * Page 1 (Welcome): Explains the goal. The "Explain This Strategy" button gives a quick AI summary of the plan.
+                * Page 2 (Liquidation): Shows assets to HOLD (BTC) and assets to SELL (DOGE, NIO, etc.) to raise $155.72 for redeployment.
+                * Page 3 (Proposal): Shows the 4 new "Self Exec Picks" to buy with the $155.72. The user can uncheck any they don't want to buy. They can click "Details" on any pick to see its rationale, risk, and get a "Live AI Analysis" (which uses Google Search for news).
+                * Page 4 (Review): Shows a final summary of all decisions (Hold, Sell, Buy, Decline). The "Generate Approval Message" button drafts an SMS for the strategist. The "Copy Message & Open SMS" button copies this message and opens the user's SMS app (like Text Now) to send to 7707711610.
+                * This chatbot (me) is in the bottom-left to answer questions at any time.
+
+                == 2. KNOWLEDGE BASE: "Investment Proposal for Arkia Allen" ==
+                This app is based on a detailed strategy document. Here is the full context from that document:
+
+                * **THE PROBLEM (ANALYSIS OF OLD PORTFOLIO):**
+                    * The old portfolio (IDEXQ, NIO, MRNA, BTTC, DOGE) was a "catastrophic impairment of capital."
+                    * Reasoning: It had "extreme concentration," "hype cycle risk" (NIO, MRNA), "fundamentally impaired" assets (IDEXQ is delisted and a -100% "sunk cost"), and "low-utility crypto" (BTTC, DOGE).
+
+                * **THE SOLUTION (THE "SELF EXEC MANDATE" PHILOSOPHY):**
+                    * This is the new investment system for identifying "asymmetric opportunities." It is built on 3 Pillars:
+                    * **Pillar 1: Contrarian Conviction:** Investing against "maximum pessimism" (This was the original thesis for BYND).
+                    * **Pillar 2: Technological Edge:** Using deep tech knowledge (AI, biotech, Web3) to find an edge. (This is the thesis for LAZR and IKT).
+                    * **Pillar 3: Information Arbitrage:** Synthesizing modern info (from X.com, etc., but filtered) to find new narratives early. (This is the thesis for VIRTUAL and ZORA).
+                    * This philosophy was hardened by a past experience with a fraudulent group called "Silver Star Live," which taught the importance of transparency and avoiding "black box" systems.
+                    * It is also based on a quantitative "edge" formula: EV = (P_win * Gain) - (P_loss * Loss).
+
+                * **THE NEW "SELF EXEC PICKS" (THE 'BUY' LIST):**
+                    * This app proposes buying 4 assets. Here is the detailed justification from the document:
+                    * **LAZR (Luminar):** (Philosophy: Pillar 2) Justification: "Technological Edge in Action." Its 1,550 nm lidar system is technically superior to competitors' 905 nm systems, creating a long-term "moat." Risk: Adoption delays, competition. Catalyst: New OEM partnership.
+                    * **IKT (Inhibikase):** (Philosophy: Pillar 2) Justification: "Technological Edge in Action." A focused bet on a specific scientific approach for Parkinson's (c-Abl kinase inhibitor). Success depends on clinical data, not market hype. Risk: Clinical trial failure (a "binary" outcome). Catalyst: Positive Phase 2a data.
+                    * **VIRTUAL (Virtuals Protocol):** (Philosophy: Pillar 3) Justification: "Executing on Information Arbitrage." It's at the intersection of AI and crypto. It creates a new asset class with "Initial Agent Offerings" (IAOs). Risk: High volatility, regulatory uncertainty. Catalyst: Integration into a major gaming/entertainment platform.
+                    * **ZORA (Zora):** (Philosophy: Pillar 3) Justification: "Executing on Information Arbitrage." It's a "picks and shovels" investment for the on-chain creator economy (NFTs), offering a sustainable, utility-driven model. Risk: High volatility, dependent on user adoption. Catalyst: A surge in on-chain creator activity.
+
+                * **THE "WATCH LIST" (AS MODIFIED BY STRATEGIST):**
+                    * **BYND (Beyond Meat):** The document originally proposed this as a "Pillar 1: Contrarian Conviction" play.
+                    * Original Justification: A high-risk tactical bet on a "short squeeze" due to extreme pessimism.
+                    * **CURRENT STATUS (Important!):** The strategist has moved this to the "Watch List." It is NOT being bought now. It is only to be considered IF it shows a 25%+ bullish reversal.
+
+                * **FINAL PLAN (This App's Workflow):**
+                    * HOLD: BTC
+                    * SELL: DOGE, NIO, BTTC, MRNA, IDEXQ
+                    * REDEPLOY CAPITAL ($155.72)
+                    * BUY: LAZR, IKT, VIRTUAL, ZORA
+
+                Your job is to answer questions based *only* on this information. You can also use the provided Google Search tool to find the LATEST news or price information on these tickers, but always remind the user this is not financial advice and is for informational purposes only.
+            `;
+            
+            // --- Get Element References ---
+            const cardContent = document.getElementById('card-content');
+            const btnBack = document.getElementById('btn-back');
+            const btnNext = document.getElementById('btn-next');
+            const modal = document.getElementById('modal');
+            const modalBackdrop = document.getElementById('modal-backdrop');
+            // Strategy Explanation
+            const btnExplainStrategy = document.getElementById('btn-explain-strategy');
+            const strategyExplanationLoading = document.getElementById('strategy-explanation-loading');
+            const strategyExplanation = document.getElementById('strategy-explanation');
+            // Review Page
+            const reviewGrid = document.getElementById('review-grid');
+            const smsDispatchArea = document.getElementById('sms-dispatch-area');
+            const smsBodyTextarea = document.getElementById('sms-body-textarea');
+            const btnCopyAndSend = document.getElementById('btn-copy-and-send');
+            // Chatbot
+            const chatBubbleButton = document.getElementById('chat-bubble-button');
+            const chatWindow = document.getElementById('chat-window');
+            const chatCloseBtn = document.getElementById('chat-close-btn');
+            const chatMessages = document.getElementById('chat-messages');
+            const chatInput = document.getElementById('chat-input');
+            const chatSendBtn = document.getElementById('chat-send-btn');
+
+
+            // --- Page Navigation ---
+            function showPage(pageId) {
+                // Reset card scroll
+                cardContent.scrollTop = 0;
+                
+                // Hide all pages
+                pages.forEach(p => {
+                    const el = document.getElementById(`page-${p}`);
+                    if (el) el.classList.add('hidden');
+                });
+                
+                // Show the target page
+                const targetPage = document.getElementById(`page-${pageId}`);
+                if (targetPage) {
+                    targetPage.classList.remove('hidden');
+                    currentPage = pageId;
+                }
+                
+                // Reset review page UI
+                reviewGrid.classList.remove('hidden');
+                smsDispatchArea.classList.add('hidden');
+                
+                updateFooter();
+            }
+
+            function navigateNext() {
+                const currentIndex = pages.indexOf(currentPage);
+                if (currentIndex < pages.length - 1) {
+                    const nextPage = pages[currentIndex + 1];
+                    // Pre-populate lists when moving to proposal or review
+                    if (nextPage === 'proposal') {
+                        populateProposalList();
+                    }
+                    if (nextPage === 'review') {
+                        populateReviewPage();
+                    }
+                    showPage(nextPage);
+                }
+            }
+
+            function navigateBack() {
+                const currentIndex = pages.indexOf(currentPage);
+                if (currentIndex > 0) {
+                    showPage(pages[currentIndex - 1]);
+                }
+            }
+
+            function updateFooter() {
+                // Handle Back Button
+                if (currentPage === 'welcome') {
+                    btnBack.classList.add('hidden');
+                } else {
+                    btnBack.classList.remove('hidden');
+                }
+
+                // Handle Next Button
+                btnNext.classList.remove('hidden'); // Show by default
+                btnNext.disabled = false; // Enable by default
+                
+                if (currentPage === 'welcome') {
+                    btnNext.innerHTML = 'Begin <i data-lucide="arrow-right"></i>';
+                    btnNext.onclick = navigateNext;
+                } else if (currentPage === 'liquidation') {
+                    btnNext.innerHTML = 'Next: Buy Proposal <i data-lucide="arrow-right"></i>';
+                    btnNext.onclick = navigateNext;
+                } else if (currentPage === 'proposal') {
+                    btnNext.innerHTML = 'Review Selections <i data-lucide="check-square"></i>';
+                    btnNext.onclick = navigateNext;
+                } else if (currentPage === 'review') {
+                    // This is the first step of the review page
+                    btnNext.innerHTML = 'Generate Approval Message <i data-lucide="send"></i>';
+                    btnNext.onclick = generateApprovalMessage; // Change action
+                }
+                
+                lucide.createIcons(); // Redraw icons
+            }
+            
+            // --- Populate Page 3: Proposal List ---
+            function populateProposalList() {
+                const listElement = document.getElementById('proposal-list');
+                listElement.innerHTML = ''; // Clear existing
+                
+                Object.keys(proposalData).forEach(ticker => {
+                    const item = proposalData[ticker];
+                    const allocatedValue = (item.allocationPercent * totalCapital).toFixed(2);
+                    
+                    const itemEl = document.createElement('div');
+                    itemEl.className = 'list-item';
+                    itemEl.innerHTML = `
+                        <label class="styled-checkbox-wrapper flex-grow">
+                            <input type="checkbox" class="styled-checkbox" data-ticker="${ticker}" checked>
+                            <div class="ml-4">
+                                <span class="checkbox-label text-white">${ticker}</span>
+                                <span class="block text-sm text-gray-400">${item.name}</span>
+                            </div>
+                        </label>
+                        <div class="text-right">
+                            <div class="text-lg font-bold text-green-400">$${allocatedValue}</div>
+                            <div class="text-sm text-gray-400">(${(item.allocationPercent * 100).toFixed(2)}%)</div>
+                        </div>
+                        <div class="pl-4 ml-4 border-l border-gray-700">
+                            <button data-ticker="${ticker}" class="btn-details text-sm text-indigo-400 hover:text-indigo-300 font-medium">Details</button>
+                        </div>
+                    `;
+                    listElement.appendChild(itemEl);
+                });
+                
+                // Add event listeners for new details buttons
+                listElement.querySelectorAll('.btn-details').forEach(button => {
+                    button.onclick = () => openModal(button.dataset.ticker);
+                });
+                
+                // Redraw icons for the new "Watch List" section
+                lucide.createIcons();
+            }
+
+            // --- Populate Page 4: Review Page ---
+            function populateReviewPage() {
+                const holdList = document.getElementById('review-hold-list');
+                const sellList = document.getElementById('review-sell-list');
+                const buyList = document.getElementById('review-buy-list');
+                const declineList = document.getElementById('review-decline-list');
+                const declineSection = document.getElementById('decline-section');
+
+                // Clear lists
+                holdList.innerHTML = '';
+                sellList.innerHTML = '';
+                buyList.innerHTML = '';
+                declineList.innerHTML = '';
+
+                // Populate HOLD List (Static)
+                holdList.innerHTML = `<li><span class="font-semibold">BTC:</span> $570.82</li>`;
+                
+                // Populate SELL List (Static)
+                sellList.innerHTML = `
+                    <li><span class="font-semibold">DOGE:</span> $108.23</li>
+                    <li><span class="font-semibold">NIO:</span> $43.19</li>
+                    <li><span class="font-semibold">BTTC:</span> $4.23</li>
+                    <li><span class="font-semibold">MRNA:</span> $0.07</li>
+                    <li><span class="font-semibold">IDEXQ:</span> $0.00</li>
+                    <li class="border-t border-gray-600 pt-2 mt-2 font-bold"><span class="font-semibold">Total:</span> $${totalCapital.toFixed(2)}</li>
+                `;
+
+                // Populate BUY/DECLINE Lists (Dynamic)
+                let totalApprovedAmount = 0;
+                let declinedCount = 0;
+                const checkboxes = document.querySelectorAll('#proposal-list .styled-checkbox');
+                
+                checkboxes.forEach(box => {
+                    const ticker = box.dataset.ticker;
+                    const item = proposalData[ticker];
+                    const allocatedValue = (item.allocationPercent * totalCapital).toFixed(2);
+                    const li = document.createElement('li');
+                    li.innerHTML = `<span class="font-semibold">${ticker}:</span> $${allocatedValue}`;
+                    
+                    if (box.checked) {
+                        buyList.appendChild(li);
+                        totalApprovedAmount += parseFloat(allocatedValue);
+                    } else {
+                        declineList.appendChild(li);
+                        declinedCount++;
+                    }
+                });
+                
+                if(buyList.innerHTML === '') buyList.innerHTML = '<li>No assets approved.</li>';
+                
+                // Show/hide decline section
+                if (declinedCount > 0) {
+                    declineSection.classList.remove('hidden');
+                } else {
+                    declineSection.classList.add('hidden');
+                }
+                
+                // Add total to buy list
+                const totalLi = document.createElement('li');
+                totalLi.className = 'border-t border-gray-600 pt-2 mt-2 font-bold';
+                totalLi.innerHTML = `<span class="font-semibold">Total:</span> $${totalApprovedAmount.toFixed(2)}`;
+                buyList.appendChild(totalLi);
+            }
+
+            // --- Modal Logic ---
+            function openModal(ticker) {
+                const item = proposalData[ticker];
+                const allocatedValue = (item.allocationPercent * totalCapital).toFixed(2);
+                
+                modal.innerHTML = `
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-3xl font-bold text-white">${ticker} - ${item.name}</h3>
+                        <button id="modal-close" class="text-gray-400 hover:text-white">&times;</button>
+                    </div>
+                    <div class="space-y-6">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="p-4 bg-gray-900/50 rounded-lg border border-gray-700">
+                                <div class="text-sm text-gray-400 mb-1">Proposed Investment</div>
+                                <div class="text-xl font-bold text-green-400">$${allocatedValue}</div>
+                            </div>
+                            <div class="p-4 bg-gray-900/50 rounded-lg border border-gray-700">
+                                <div class="text-sm text-gray-400 mb-1">Time Horizon</div>
+                                <div class="text-xl font-bold text-white">${item.timeHorizon}</div>
+                            </div>
+                        </div>
+                        <div class="p-4 bg-gray-900/50 rounded-lg border border-gray-700">
+                            <h4 class="text-lg font-semibold text-white mb-2">Strategic Rationale</h4>
+                            <p class="text-gray-300 leading-relaxed">${item.rationale}</p>
+                        </div>
+                        <div class="p-4 bg-red-900/30 rounded-lg border border-red-500/50">
+                            <h4 class="text-lg font-semibold text-red-200 mb-2">Risk Analysis</h4>
+                            <p class="text-red-100">${item.risk}</p>
+                        </div>
+                        <div class="p-4 bg-green-900/30 rounded-lg border border-green-500/50">
+                            <h4 class="text-lg font-semibold text-green-200 mb-2">Potential Catalyst</h4>
+                            <p class="text-green-100">${item.catalyst}</p>
+                        </div>
+                        
+                        <!-- AI Analysis Section -->
+                        <div class="text-center">
+                            <button id="ai-btn" class="btn btn-primary">
+                                <i data-lucide="sparkles"></i>
+                                Get Live AI Analysis
+                            </button>
+                            <div id="ai-loading" class="hidden flex items-center justify-center gap-3 mt-4">
+                                <div class="spinner"></div>
+                                <span class="text-gray-400">Fetching live market data...</span>
+                            </div>
+                        </div>
+                        <div id="ai-content-wrapper" class="hidden p-4 mt-4 bg-gray-900/50 rounded-lg border border-indigo-500/50 text-indigo-100 leading-relaxed">
+                            <p id="ai-content"></p>
+                            <div id="ai-sources" class="mt-4 text-xs text-gray-400"></div>
+                        </div>
+                    </div>
+                `;
+                
+                modal.classList.remove('hidden');
+                modalBackdrop.classList.remove('hidden');
+                
+                // Add event listeners for modal
+                document.getElementById('modal-close').onclick = closeModal;
+                document.getElementById('ai-btn').onclick = () => getAiAnalysis(ticker, item.name);
+            }
+
+            function closeModal() {
+                modal.classList.add('hidden');
+                modalBackdrop.classList.add('hidden');
+            }
+
+            // --- Generic Gemini API Call Function ---
+            async function callGemini(systemPrompt, userQuery, useGrounding, chatHistory = []) {
+                const apiKey = hardcodedApiKey;
+                // Corrected API URL
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+                // Construct the contents array for the API call
+                const contents = [];
+                
+                // Add chat history if available
+                if (chatHistory.length > 0) {
+                    contents.push(...chatHistory);
+                }
+                
+                // Add the new user query
+                contents.push({ 
+                    role: "user",
+                    parts: [{ text: userQuery }]
+                });
+
+                const payload = {
+                    contents: contents,
+                    systemInstruction: {
+                        parts: [{ text: systemPrompt }]
+                    },
+                };
+
+                if (useGrounding) {
+                    // Corrected payload for grounding
+                    payload.tools = [{ "google_search": {} }];
+                }
+
+                try {
+                    // Implement exponential backoff for retries
+                    let response;
+                    let delay = 1000;
+                    for (let i = 0; i < 5; i++) {
+                        response = await fetch(apiUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+
+                        if (response.ok) {
+                            break; // Success
+                        } else if (response.status === 429 || response.status >= 500) {
+                            // Don't log retries as errors
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            delay *= 2;
+                        } else {
+                            // Throw specific error for debugging
+                            const errorBody = await response.text();
+                            console.error("API Error Body:", errorBody);
+                            throw new Error(`API Error: ${response.status} ${response.statusText}`);
+                        }
+                    }
+
+                    if (!response || !response.ok) {
+                        throw new Error(`API request failed after retries.`);
+                    }
+
+                    const result = await response.json();
+                    return result; // Return the full result
+
+                } catch (error) {
+                    console.error("Gemini API Error:", error);
+                    throw error; // Re-throw the error to be handled by the caller
+                }
+            }
+
+            // --- Gemini Feature 1: Live AI Analysis ---
+            async function getAiAnalysis(ticker, name) {
+                const aiBtn = document.getElementById('ai-btn');
+                const aiLoading = document.getElementById('ai-loading');
+                const aiContentWrapper = document.getElementById('ai-content-wrapper');
+                const aiContent = document.getElementById('ai-content');
+                const aiSources = document.getElementById('ai-sources');
+
+                if (aiBtn) aiBtn.classList.add('hidden');
+                if (aiLoading) aiLoading.classList.remove('hidden');
+                if (aiContentWrapper) aiContentWrapper.classList.add('hidden');
+                
+                const today = new Date().toDateString();
+                const systemPrompt = `Act as a world-class financial analyst. Provide a concise, 2-3 sentence summary of the absolute latest news and market sentiment for the given asset. Do not give financial advice. Focus only on factual news or widespread sentiment.`;
+                const userQuery = `What is the latest news and market sentiment for ${name} (${ticker}) as of today, ${today}?`;
+
+                try {
+                    const result = await callGemini(systemPrompt, userQuery, true, []); // Use grounding
+                    const candidate = result.candidates?.[0];
+
+                    if (candidate && candidate.content?.parts?.[0]?.text) {
+                        const text = candidate.content.parts[0].text;
+                        if(aiContent) aiContent.innerText = text.replace(/[*#]/g, ''); // Clean up markdown
+                        
+                        // Extract and display sources
+                        let sources = [];
+                        const groundingMetadata = candidate.groundingMetadata;
+                        if (groundingMetadata && groundingMetadata.groundingAttributions) {
+                            sources = groundingMetadata.groundingAttributions
+                                .map(attribution => (attribution.web?.title || attribution.web?.uri))
+                                .filter(Boolean); // Filter out null/undefined
+                            
+                            if (sources.length > 0) {
+                                aiSources.innerText = `Sources: ${sources.join(', ')}`;
+                            } else {
+                                aiSources.innerText = '';
+                            }
+                        }
+
+                    } else {
+                        if(aiContent) aiContent.innerText = 'Could not retrieve AI analysis. The response was empty.';
+                    }
+                } catch (error) {
+                    console.error("AI Analysis Error:", error);
+                    if(aiContent) aiContent.innerText = `Error fetching analysis. Please try again. \n(${error.message})`;
+                } finally {
+                    if(aiLoading) aiLoading.classList.add('hidden');
+                    if(aiContentWrapper) aiContentWrapper.classList.remove('hidden');
+                }
+            }
+            
+            // --- Gemini Feature 2: Strategy Explanation ---
+            async function getStrategyExplanation() {
+                btnExplainStrategy.disabled = true;
+                strategyExplanationLoading.classList.remove('hidden');
+                strategyExplanation.classList.add('hidden');
+
+                const systemPrompt = "You are a professional financial strategist. Your tone is clear, confident, and educational.";
+                const userQuery = `Briefly explain the core idea of this portfolio rebalancing strategy in 2-3 concise sentences. The strategy involves:
+                1. Holding a core position in BTC.
+                2. Selling all other legacy assets (DOGE, NIO, BTTC, MRNA, IDEXQ) that are high-risk, impaired, or low-utility.
+                3. Redeploying the capital from those sales into a focused set of new high-growth 'Self Exec Picks' (LAZR, IKT, VIRTUAL, ZORA) that have asymmetric risk/reward profiles.`;
+                
+                try {
+                    const result = await callGemini(systemPrompt, userQuery, false, []); // No grounding, no history
+                    const candidate = result.candidates?.[0];
+                    if (candidate && candidate.content?.parts?.[0]?.text) {
+                        const text = candidate.content.parts[0].text;
+                        strategyExplanation.innerText = text.replace(/[*#]/g, '');
+                    } else {
+                        strategyExplanation.innerText = 'Could not retrieve AI explanation. The response was empty.';
+                    }
+                } catch (error) {
+                    strategyExplanation.innerText = `Error fetching explanation. Please try again. \n(${error.message})`;
+                } finally {
+                    strategyExplanationLoading.classList.add('hidden');
+                    strategyExplanation.classList.remove('hidden');
+                    btnExplainStrategy.disabled = false;
+                }
+            }
+            
+            // --- Gemini Feature 3: AI-Drafted SMS Body ---
+            async function generateSmsBody(approvedTrades, declinedTrades, totalApprovedAmount) {
+                const holdInfo = "== APPROVED TO HOLD ==\nBTC ($570.82)\n\n";
+                const sellInfo = `== APPROVED TO SELL ==\nDOGE, NIO, BTTC, MRNA, IDEXQ\nTotal Capital: $${totalCapital.toFixed(2)}\n\n`;
+                const buyInfo = `== APPROVED TO BUY ==\n${approvedTrades.length > 0 ? approvedTrades.join('\n') : 'NONE'}\nTotal Approved: $${totalApprovedAmount.toFixed(2)}\n\n`;
+                const declineInfo = `== DECLINED TO BUY ==\n${declinedTrades.length > 0 ? declinedTrades.join(', ') : 'NONE'}`;
+
+                const systemPrompt = "You are a helpful assistant for a financial strategist. Your job is to draft a clear, professional, and friendly confirmation message for a client based on their decisions. Start with a positive confirmation of the actions taken. Do not add any extra greetings or sign-offs. Just produce the summary text.";
+                const userQuery = `Please draft a portfolio rebalancing confirmation message for my client based on these actions. Make it professional and concise.
+
+                ${holdInfo}
+                ${sellInfo}
+                ${buyInfo}
+                ${declineInfo}`;
+
+                try {
+                    const result = await callGemini(systemPrompt, userQuery, false, []); // No grounding, no history
+                    const candidate = result.candidates?.[0];
+                    if (candidate && candidate.content?.parts?.[0]?.text) {
+                        return candidate.content.parts[0].text.replace(/[*#]/g, ''); // Return cleaned text
+                    } else {
+                        throw new Error("Empty response from AI");
+                    }
+                } catch (error) {
+                    console.error("SMS Generation Error:", error);
+                    // Fallback to the old static message
+                    return `PORTFOLIO REBALANCING APPROVAL:\n\n${holdInfo}${sellInfo}${buyInfo}${declineInfo}`;
+                }
+            }
+            
+            // --- Clipboard Helper Function ---
+            // Uses document.execCommand for broad compatibility in secure environments
+            async function copyToClipboard(text) {
+                try {
+                    const textarea = document.createElement('textarea');
+                    textarea.value = text;
+                    textarea.style.position = 'fixed'; // Prevent scrolling to bottom
+                    textarea.style.opacity = 0;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand('copy'); // Use execCommand
+                    document.body.removeChild(textarea);
+                    return true; // Success
+                } catch (err) {
+                    console.error('Failed to copy text: ', err);
+                    return false; // Failure
+                }
+            }
+
+            // --- UPDATED: Final Step Workflow ---
+            
+            // Step 3a: Generate the message and show the new UI
+            async function generateApprovalMessage() {
+                // Disable button and show loading
+                btnNext.disabled = true;
+                btnNext.innerHTML = '<div class="spinner"></div> Generating Summary...';
+                
+                let approvedTrades = [];
+                let declinedTrades = [];
+                let totalApprovedAmount = 0;
+
+                const checkboxes = document.querySelectorAll('#proposal-list .styled-checkbox');
+                
+                checkboxes.forEach(box => {
+                    const ticker = box.dataset.ticker;
+                    const item = proposalData[ticker];
+                    const allocatedValue = (item.allocationPercent * totalCapital).toFixed(2);
+                    
+                    if (box.checked) {
+                        approvedTrades.push(`${ticker} ($${allocatedValue})`);
+                        totalApprovedAmount += parseFloat(allocatedValue);
+                    } else {
+                        declinedTrades.push(ticker);
+                    }
+                });
+
+                // 1. Call AI to draft the message
+                const messageBody = await generateSmsBody(approvedTrades, declinedTrades, totalApprovedAmount);
+                
+                // 2. Populate the textarea
+                smsBodyTextarea.value = messageBody;
+                
+                // 3. Swap the UI
+                reviewGrid.classList.add('hidden');
+                smsDispatchArea.classList.remove('hidden');
+                
+                // 4. Hide the 'Next' button (footer)
+                btnNext.classList.add('hidden');
+            }
+            
+            // Step 3b: The user's *new* click to copy and send
+            async function copyAndOpenSms() {
+                const messageBody = smsBodyTextarea.value;
+                const originalButtonHtml = btnCopyAndSend.innerHTML;
+
+                // 1. Copy to clipboard
+                const copySuccess = await copyToClipboard(messageBody);
+
+                if (copySuccess) {
+                    btnCopyAndSend.innerHTML = '<i data-lucide="check"></i> Copied! Opening SMS...';
+                } else {
+                    btnCopyAndSend.innerHTML = 'Error! Opening SMS...';
+                }
+                lucide.createIcons(); // Redraw icon
+                
+                // 2. Create the sms: link
+                const encodedMessage = encodeURIComponent(messageBody);
+                
+                // 3. Open the user's default text messaging app (like Text Now)
+                window.location.href = `sms:${strategistPhoneNumber}?body=${encodedMessage}`;
+                
+                // 4. Reset button after a delay
+                setTimeout(() => {
+                    btnCopyAndSend.innerHTML = originalButtonHtml;
+                    lucide.createIcons(); // Redraw icon
+                }, 2000);
+            }
+
+            // --- CHATBOT LOGIC ---
+            function toggleChat() {
+                chatWindow.classList.toggle('hidden');
+                chatWindow.classList.toggle('open');
+                
+                // Toggle bubble icon
+                if (chatWindow.classList.contains('open')) {
+                    chatBubbleButton.innerHTML = '<i data-lucide="x"></i>';
+                } else {
+                    chatBubbleButton.innerHTML = '<i data-lucide="message-circle"></i>';
+                }
+                lucide.createIcons();
+            }
+
+            function addChatMessage(message, sender) {
+                const msgDiv = document.createElement('div');
+                msgDiv.className = `chat-message ${sender}`;
+                msgDiv.innerText = message;
+                chatMessages.appendChild(msgDiv);
+                // Scroll to bottom
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+                return msgDiv;
+            }
+
+            async function handleChatSend() {
+                const userQuery = chatInput.value.trim();
+                if (userQuery === '') return;
+
+                // Disable input
+                chatInput.value = '';
+                chatInput.disabled = true;
+                chatSendBtn.disabled = true;
+
+                // Add user message to UI
+                addChatMessage(userQuery, 'user');
+
+                // Add loading indicator
+                const loadingMsg = addChatMessage('', 'bot loading');
+                loadingMsg.innerHTML = '<div class="spinner" style="width: 1rem; height: 1rem; border-width: 2px;"></div> Thinking...';
+
+                try {
+                    // Call Gemini with chat history and grounding
+                    // NOTE: We pass the *user query* and the *chat history* separately to the call function
+                    const result = await callGemini(chatbotSystemPrompt, userQuery, true, chatHistory);
+                    
+                    loadingMsg.remove(); // Remove loading indicator
+
+                    const candidate = result.candidates?.[0];
+                    let botResponse = 'Sorry, I had trouble generating a response. Please try again.';
+
+                    if (candidate && candidate.content?.parts?.[0]?.text) {
+                        botResponse = candidate.content.parts[0].text.replace(/[*#]/g, '');
+                    }
+                    
+                    // Add user query and bot response to history *after* the call
+                    chatHistory.push({ role: 'user', parts: [{ text: userQuery }] });
+                    chatHistory.push({ role: 'model', parts: [{ text: botResponse }] });
+                    
+                    // Add bot response to UI
+                    addChatMessage(botResponse, 'bot');
+
+                } catch (error) {
+                    loadingMsg.remove(); // Remove loading indicator
+                    addChatMessage(`Error: ${error.message}`, 'bot');
+                    console.error("Chatbot Error:", error);
+                } finally {
+                    // Re-enable input
+                    chatInput.disabled = false;
+                    chatSendBtn.disabled = false;
+                    chatInput.focus();
+                }
+            }
+            
+            // --- Init ---
+            // Add event listeners for navigation
+            btnBack.onclick = navigateBack;
+            btnNext.onclick = navigateNext; // Initial setup
+            modalBackdrop.onclick = closeModal;
+            btnExplainStrategy.onclick = getStrategyExplanation;
+            btnCopyAndSend.onclick = copyAndOpenSms; 
+
+            // Add event listeners for chatbot
+            chatBubbleButton.onclick = toggleChat;
+            chatCloseBtn.onclick = toggleChat;
+            chatSendBtn.onclick = handleChatSend;
+            chatInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') handleChatSend();
+            });
+
+            // Show the first page
+            showPage('welcome');
+
+            // --- Blob Animation Logic ---
+            const blob = document.getElementById("blob");
+            window.onpointermove = event => {
+                const { clientX, clientY } = event;
+                
+                // Use requestAnimationFrame to avoid layout thrashing
+                requestAnimationFrame(() => {
+                    blob.animate({
+                        left: `${clientX}px`,
+                        top: `${clientY}px`
+                    }, { duration: 3000, fill: "forwards" });
+                });
+            }
+        
+        }); // End of 'load' event listener
+    </script>
+</body>
+</html>
+
